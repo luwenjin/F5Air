@@ -1,0 +1,62 @@
+body{
+	font-family: "Arial", "Microsoft Yahei", "simsun";
+	font-size:16px;
+}
+
+h1{
+	color:#ccc;
+	font-size:48px;
+	margin-top:20px;
+	margin-bottom:10px;
+}
+ul, li{
+	list-style:none;
+}
+ul{
+	display:block; 
+	border:1px dotted #ccc;
+	padding:10px 20px;
+}
+li{
+	margin-bottom:5px;
+	background-repeat:no-repeat;
+	background-position:left center;
+	background-image: url("/con/assets/images/page_white.png");
+	padding-left:20px;
+}
+
+a{
+	color: #0082CB;
+	display:inline-block;
+	line-height:30px;
+	width:100%;
+	padding: 0 5px;
+	text-decoration:none;
+}
+a:hover{
+	color:white;
+	background: #0082CB;
+	text-decoration:none;
+}
+
+.parent{
+	background-image: url("/con/assets/images/arrow_turn_left.png");
+}
+.dir{
+	background-image: url("/con/assets/images/folder.png");
+}
+.dir a{
+	text-decoration:underline;
+}
+.html, .htm{
+	background-image: url("/con/assets/images/page_world.png");
+}
+.css{
+	background-image: url("/con/assets/images/page_white_code_red.png");
+}
+.js{
+	background-image: url("/con/assets/images/page_white_cup.png");
+}
+.png, .jpg, .jpeg, .gif, .bmp, .ico{
+	background-image: url("/con/assets/images/picture.png");
+}

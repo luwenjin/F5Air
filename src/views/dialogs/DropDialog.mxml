@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:BorderContainer xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" 
+		 width="100%" height="100%" borderVisible="false"
+		 currentState="empty"
+		 nativeDragEnter="on_DRAG_ENTER(event)"
+		 nativeDragExit="on_DRAG_EXIT(event)"
+		 color="0x444444"
+		 >
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<s:layout>
+		<s:VerticalLayout paddingBottom="10" paddingLeft="10" paddingRight="10" paddingTop="10" />
+	</s:layout>
+	
+	<s:states>
+		<s:State name="empty" />
+		<s:State name="NewFolder" />
+		<s:State name="NewUrl" />
+		<s:State name="BindFolder" />
+	</s:states>
+	
+	<s:BorderContainer id="boxBindFolder" includeIn="BindFolder" width="100%" height="100%"
+					   borderColor="#BDE2F5" borderVisible="true" borderWeight="5" alpha="0.3"  cornerRadius="5" 
+					   nativeDragEnter="on_ROLL_OVER(event)" 
+					   nativeDragExit="on_ROLL_OUT(event)" 
+					   nativeDragDrop="on_DRAG_DROP(event)"
+					   skinClass="views.skins.DashBorderContainerSkin">
+		<s:layout>
+			<s:VerticalLayout verticalAlign="middle" horizontalAlign="center" paddingLeft="10" paddingRight="10" />
+		</s:layout>
+		<s:HGroup width="100%" horizontalAlign="center" verticalAlign="middle" paddingBottom="10">
+			<s:Image source="@Embed('assets/images/gear_32.png')" width="32" height="32"/>
+			<s:Image source="@Embed('assets/images/folder_64.png')" width="64" height="64"/>
+		</s:HGroup>
+		<s:Label text="设定为网站根目录" textAlign="center" width="100%" />
+		<s:Label text="{contentBindFolder}" textAlign="center" width="100%" color="#209DDD" />
+	</s:BorderContainer>
+	
+	<s:BorderContainer id="boxNewFolder" includeIn="NewFolder,BindFolder" 
+					   width="100%" height="100%" borderColor="#BDE2F5" borderVisible="true" borderWeight="5" alpha="0.3" cornerRadius="5" 
+					   nativeDragEnter="on_ROLL_OVER(event)"
+					   nativeDragExit="on_ROLL_OUT(event)"
+					   nativeDragDrop="on_DRAG_DROP(event)"
+					   skinClass="views.skins.DashBorderContainerSkin"
+					   >
+		<s:layout>
+			<s:VerticalLayout verticalAlign="middle" horizontalAlign="center" paddingLeft="10" paddingRight="10" />
+		</s:layout>
+		<s:HGroup width="100%" horizontalAlign="center" verticalAlign="middle" paddingBottom="10">
+			<s:Image source="@Embed('assets/images/plus_32.png')" width="32" height="32"/>
+			<s:Image source="@Embed('assets/images/folder_64.png')" width="64" height="64"/>
+		</s:HGroup>
+		
+		<s:Label text="新建F5静态页项目" textAlign="center" width="100%"/>
+		<s:Label text="{contentNewFolder}" textAlign="center" width="100%" color="#209DDD"  />
+	</s:BorderContainer>
+	
+	<s:BorderContainer id="boxNewUrl" includeIn="NewUrl"
+					   width="100%" height="100%" borderColor="#BDE2F5" borderVisible="true" borderWeight="5" alpha="0.3" cornerRadius="5" 
+					   nativeDragEnter="on_ROLL_OVER(event)"
+					   nativeDragExit="on_ROLL_OUT(event)"
+					   nativeDragDrop="on_DRAG_DROP(event)"
+					   skinClass="views.skins.DashBorderContainerSkin"
+					   >
+		<s:layout>
+			<s:VerticalLayout verticalAlign="middle" horizontalAlign="center" paddingLeft="10" paddingRight="10" />
+		</s:layout>
+		<s:HGroup width="100%" horizontalAlign="center" verticalAlign="middle" paddingBottom="10">
+			<s:Image source="@Embed('assets/images/plus_32.png')" width="32" height="32"/>
+			<s:Image source="@Embed('assets/images/globe_64.png')" width="64" height="64"/>
+		</s:HGroup>
+		<s:Label text="新建F5动态页面项目" textAlign="center" width="100%" />
+		<s:Label text="{contentNewUrl}" textAlign="center" width="100%" color="#209DDD" />
+	</s:BorderContainer>
+	
+	
+	
+	<fx:Script>
+		<![CDATA[
+			import mx.events.CloseEvent;
+			import mx.managers.DragManager;
+			
+			import org.hamcrest.object.nullValue;
+			
+			import spark.components.Group;
+			
+			import webserver.WebServer;
+			
+			public static const NEW_FOLDER:String = "NewFolder";
+			public static const BIND_FOLDER:String = 'BindFolder';
+			public static const NEW_URL:String = 'NewUrl';
+			
+			[Bindable]
+			private var contentNewFolder:String;
+			[Bindable]
+			private var contentBindFolder:String;
+			[Bindable]
+			private var contentNewUrl:String;
+			
+			public var dropAs:String;
+			private var _dropObject:Object;
+			
+			private var server:WebServer = WebServer.instance;
+			
+			public var layer:Group;
+			
+			public function showNewFolder( content:String ):void
+			{
+				contentNewFolder = content;
+				currentState = NEW_FOLDER;
+			}
+			
+			public function showBindFolder( content:String ):void
+			{
+				contentBindFolder = content;
+				contentNewFolder = content;
+				currentState = BIND_FOLDER;
+			}
+			
+			public function showNewUrl( content:String ):void
+			{
+				contentNewUrl = content;
+				currentState = NEW_URL;
+			}
+			
+			protected function on_ROLL_OUT(event:NativeDragEvent):void
+			{
+				var bc:BorderContainer = event.target as BorderContainer;
+				if ( ! bc ) return;
+				
+				bc.setStyle("backgroundColor", '0xeeeeee' );
+				bc.setStyle("borderVisible", false );
+				bc.setStyle("borderColor", '#C5C5C5');
+				bc.alpha = 0.3
+				
+//				if ( bc == boxNewFolder && _dropAs == NEW_FOLDER ) _dropAs = null;
+//				if ( bc == boxNewUrl && _dropAs == NEW_URL ) _dropAs = null;
+//				if ( bc == boxBindFolder && _dropAs == BIND_FOLDER ) _dropAs = null;
+				trace( 'on_ROLL_OUT:-dropAs', dropAs );
+			}
+			
+			protected function on_ROLL_OVER( event:MouseEvent ):void
+			{
+				DragManager.acceptDragDrop( event.target as BorderContainer );
+				var bc:BorderContainer = event.target as BorderContainer;
+				if ( !bc ) return;
+				bc.setStyle("backgroundColor", '0xFFFFFF' );
+				bc.setStyle("borderVisible", true );
+				bc.setStyle("borderColor", '#BDE2F5');
+				bc.alpha = 1;
+//				
+//				if ( bc == boxNewFolder ) 	_dropAs = NEW_FOLDER;
+//				if ( bc == boxNewUrl ) 		_dropAs = NEW_URL;
+//				if ( bc == boxBindFolder )	_dropAs = BIND_FOLDER;
+				
+				trace( 'on_ROLL_OVER:dropAs', dropAs );
+			}
+			
+			
+			
+			public function get dropObject():Object
+			{
+				return _dropObject;
+			}
+			
+			private function filesArrayToFolder( files:Array ):File
+			{
+				var folder:File;
+				if ( files.length == 1 && files[0].isDirectory )
+				{
+					folder = files[0] as File;
+				}
+				else
+				{
+					var file:File = files[0] as File;
+					folder = file.parent;
+				}
+				return folder;
+			}
+			
+			protected function on_DRAG_ENTER(event:NativeDragEvent):void
+			{
+				dropAs = null;
+				_dropObject = null;
+				trace( 'enter', event.target );
+				if( event.currentTarget != this ) return;
+				
+				
+				var drop_files:Array = event.clipboard.getData( ClipboardFormats.FILE_LIST_FORMAT ) as Array;
+				if ( drop_files && drop_files.length > 0 )
+				{
+					var folder:File = filesArrayToFolder( drop_files );
+					if ( server.proxiesRouter ){
+						showBindFolder( folder.nativePath );
+					}else{
+						showNewFolder( folder.nativePath );
+					};
+					_dropObject = folder;
+					return;
+				}
+				
+				var url:String = event.clipboard.getData( ClipboardFormats.URL_FORMAT ) as String;				
+				if ( url )
+				{
+					showNewUrl( url );
+					_dropObject = url;
+				}
+			}
+			
+			
+			
+			protected function on_DRAG_EXIT(event:NativeDragEvent):void
+			{
+				if ( event.target != this ) return;
+				trace( 'exit', event.target );
+				this.close() ;
+			}
+			
+			protected function on_DRAG_DROP(event:NativeDragEvent):void
+			{
+				trace( 'drop', event.target );
+				trace( 'drop', event.currentTarget );
+				if ( event.target == boxNewFolder ) dropAs = NEW_FOLDER;
+				if ( event.target == boxBindFolder ) dropAs = BIND_FOLDER;
+				if ( event.target == boxNewUrl ) dropAs = NEW_URL;
+				
+				this.close();
+			}
+			
+			public function open():void
+			{
+				trace( 'open' );
+				currentState = 'empty';
+				layer.removeAllElements();
+				layer.addElement( this );
+			}
+			
+			public function close():void
+			{
+				layer.removeAllElements();
+				if ( boxBindFolder ) boxBindFolder.alpha = 0.3;
+				if ( boxNewFolder ) boxNewFolder.alpha = 0.3;
+				if ( boxNewUrl ) boxNewUrl.alpha = 0.3;
+				dispatchEvent( new Event( Event.CLOSE ) );
+			}
+			
+		]]>
+	</fx:Script>
+	
+</s:BorderContainer>

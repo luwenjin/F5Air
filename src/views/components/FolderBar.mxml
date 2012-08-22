@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:BorderContainer xmlns:fx="http://ns.adobe.com/mxml/2009" 
+				   xmlns:s="library://ns.adobe.com/flex/spark" 
+				   xmlns:mx="library://ns.adobe.com/flex/mx" 
+				   height="{_height}" minHeight="0" width="100%"
+				   currentState="local"
+				   creationComplete="init()"
+				   addedToStage="on_ADDED_TO_STAGE(event)"
+				   enterState="on_ENTER_STATE(event)"
+				   >
+	<fx:Metadata>
+		[Event(name="select", type="flash.events.Event")]
+		[Event(name="close", type="flash.events.Event")]
+	</fx:Metadata>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<s:states>
+		<s:State name="local"/>
+		<s:State name="remote"/>
+	</s:states>
+	<s:layout>
+		<s:HorizontalLayout paddingRight="5" paddingLeft="5"/>
+	</s:layout>
+	
+	<s:HGroup width="100%" height="{_height}" clipAndEnableScrolling="true">
+		<s:Label id="lblFolder"
+				 height="{_height}" verticalAlign="middle" color="0x444444" buttonMode="true" 
+				 lineBreak="explicit"
+				 click="on_lblFolder_CLICK(event)"
+				 text="{lblFolder_text}"
+				 textDecoration="{lblFolder_textDecoration}"
+				 toolTip="{lblFolder_toolTip}"
+				 />	
+	</s:HGroup>
+	
+	<s:Image id="btnSetting" visible.local="false"
+			 width="16" height="{_height}" buttonMode="true"
+			 source="@Embed('assets/images/wrench.png')"
+			 click="on_btnSetting_CLICK(event)"
+			 />	
+	
+	<s:Image id="btnClose" 
+			 width="16" height="{_height}" buttonMode="true"
+			 source="@Embed('assets/images/close.gif')"
+			 toolTip="关闭本项目"
+			 click="on_btnClose_CLICK(event)"
+			 />
+	<fx:Script>
+		<![CDATA[
+			import flash.net.dns.AAAARecord;
+			
+			import managers.ClientData;
+			
+			import mx.events.FlexEvent;
+			
+			import org.hamcrest.object.nullValue;
+			
+			import webserver.routers.BounceRouter;
+			import webserver.routers.FilesRouter;
+			import webserver.routers.IRouter;
+			private var _folder:File;
+			private var _router:IRouter;
+			
+			public var tempFolder:File;
+			
+			private var blueBorder:String = "0x92CAE4";
+			private var blueBG:String = "0xD5EDF8";
+			
+			private var redBorder:String = "0xFBC2C4";
+			private var redBG:String = "0xFBE3E4";
+			
+			[Bindable]
+			private var lblFolder_text:String;
+			[Bindable]
+			private var lblFolder_toolTip:String;
+			[Bindable]
+			private var lblFolder_textDecoration:String;
+			[Bindable]
+			private var this_borderColor:String;
+			[Bindable]
+			private var this_BGColor:String;
+			[Bindable]
+			private var _height:int = 30;
+			
+			private var cd:ClientData = ClientData.instance;
+			
+			public function get folder():File
+			{
+				return _folder;
+			}
+
+			public function set folder(value:File):void
+			{
+				if ( router as BounceRouter )
+					( router as BounceRouter ).rootFolder = value;
+				cd.lastFolderSelected = this.folder;
+				
+				_folder = value;
+				updateStyleByFolder();
+				
+				this.dispatchEvent( new Event( Event.SELECT ) );
+			}
+			
+			public function set router( r:IRouter ):void
+			{
+				this._router = r;
+				this.folder = r.rootFolder;
+				if ( this.router as FilesRouter )
+					this.currentState = 'local';
+				if ( this.router as BounceRouter )
+					this.currentState = 'remote';
+				
+				this.validateNow();
+			}
+			
+			public function get router():IRouter
+			{
+				return this._router;
+			}
+
+			private function init():void
+			{
+				tempFolder = cd.lastFolderSelected;
+				tempFolder.addEventListener( Event.SELECT, on_folder_SELECT );
+				btnSetting.toolTip = '点击设置网站根目录\n（支持拖放）'
+			}
+			
+			
+			protected function on_btnSetting_CLICK(event:MouseEvent):void
+			{
+				tempFolder.browseForDirectory( '请选择网站根目录' );
+			}
+			
+			protected function on_btnClose_CLICK(event:MouseEvent):void
+			{
+				this.dispatchEvent( new Event( Event.CLOSE ) );
+			}
+			
+			protected function on_folder_SELECT(event:Event):void
+			{
+				this.folder = event.target as File;
+			}
+			
+			protected function on_lblFolder_CLICK(event:MouseEvent):void
+			{
+				if( !folder )
+					tempFolder.browseForDirectory( '请选择网站根目录' );
+				else
+					folder.openWithDefaultApplication();
+			}
+			
+			private function updateStyleByFolder():void
+			{
+//				if ( ! lblFolder ) return ;
+				
+				if ( _folder ){
+					lblFolder_text = _folder.nativePath;
+					lblFolder_toolTip = '点击浏览目录';
+					lblFolder_textDecoration = 'none';
+					this.setStyle('borderColor', blueBorder );
+					this.setStyle('backgroundColor', blueBG );
+				}else{
+					lblFolder_text = '请设定本地对应目录';
+					lblFolder_toolTip = '点击设置网站根目录\n（支持拖放）';
+					lblFolder_textDecoration = 'underline';
+					this.setStyle('borderColor', redBorder );
+					this.setStyle('backgroundColor', redBG );
+				}
+			}
+			
+			
+			protected function on_ADDED_TO_STAGE(event:Event):void
+			{
+				updateStyleByFolder();
+			}
+			
+			protected function on_ENTER_STATE(event:FlexEvent):void
+			{
+				updateStyleByFolder();
+			}
+			
+		]]>
+	</fx:Script>
+</s:BorderContainer>

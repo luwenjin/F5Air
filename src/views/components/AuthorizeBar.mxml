@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:BorderContainer xmlns:fx="http://ns.adobe.com/mxml/2009" 
+				   xmlns:s="library://ns.adobe.com/flex/spark" 
+				   xmlns:mx="library://ns.adobe.com/flex/mx" 
+				   width="400" height="25" minHeight="0" borderColor="0xC6D880" cornerRadius="3"
+				   buttonMode="true"
+				   toolTip="成为认证用户"
+				   creationComplete="init()"
+				   click="on_CLICK(event)"
+				   >
+	<s:backgroundFill>
+		<s:LinearGradient rotation="90">
+			<s:GradientEntry color="0xC9EF70" ratio="0" alpha="0.3"/>
+			<s:GradientEntry color="0x7DAD1C" ratio="1" alpha="0.3"/>
+		</s:LinearGradient>
+	</s:backgroundFill>
+	<s:layout>
+		<s:HorizontalLayout verticalAlign="middle" paddingLeft="5" paddingRight="5" />
+	</s:layout>
+	<s:Image width="16" height="16" source="@Embed('assets/images/tick.png')" /> 
+	<s:Label id="ad" 
+			 width="100%" color="0x6A972A"
+			 lineBreak="explicit"
+			 text="如果喜欢F5，请支持我们，成为认证用户" 
+			 >
+		<s:showEffect>
+			<s:Fade id="fadeIn" target="{ad}" alphaFrom="0" alphaTo="1" duration="300"/>
+		</s:showEffect>
+		<s:hideEffect>
+			<s:Fade id="fadeOut" target="{ad}" alphaFrom="1" alphaTo="0" duration="300" effectEnd="on_ad_FADE_OUT(event)" />
+		</s:hideEffect>
+	</s:Label>
+	
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import managers.DialogManager;
+			import managers.GlobalManager;
+			import managers.PowerEvent;
+			import managers.PowerManager;
+			
+			import mx.core.Window;
+			import mx.effects.Tween;
+			import mx.events.EffectEvent;
+			
+			import spark.effects.Animate;
+			import spark.effects.Fade;
+			import spark.effects.animation.Animation;
+			
+			private var gm:GlobalManager = GlobalManager.instance;
+			private var pm:PowerManager = PowerManager.instance;
+			private var dm:DialogManager = DialogManager.instance;
+			
+			private var timer:Timer;
+			
+			private var lines:Array = [
+				'认证后，CSS变动时，不刷页面，只换样式',
+				'认证后，启动时会记住上次打开的目录',
+				'认证后，F5能在屏幕边缘自动隐藏(类似QQ)',
+				'如果喜欢F5，请支持我们，成为认证用户'
+			];
+			
+			private var lineIdx:int = 0;
+			
+			private function init():void
+			{
+				this.check();
+				this.timer = new Timer(10*1000);
+				this.timer.addEventListener( TimerEvent.TIMER, on_TIMER );
+				this.timer.start();
+				
+				pm.addEventListener( PowerEvent.ACTIVATED, on_POWER_ACTIVATED );
+			}
+			
+			public function check():void
+			{
+				if ( pm.isFull ){
+					this.visible = false;
+					this.includeInLayout = false;
+				}
+			}
+			
+			public function on_CLICK(event:*=null):void
+			{
+				dm.authorizeDialog.open();
+			}
+			
+			protected function on_TIMER(event:TimerEvent):void
+			{
+				this.fadeOut.play();
+			}
+			
+			protected function on_ad_FADE_OUT(event:EffectEvent):void
+			{
+				if ( this.lineIdx >= this.lines.length ) this.lineIdx = 0;
+				this.ad.text = this.lines[ lineIdx ];
+				this.lineIdx += 1;
+				this.fadeIn.play();
+			}
+			
+			protected function on_POWER_ACTIVATED(event:Event):void
+			{
+				this.check();
+			}
+			
+		]]>
+	</fx:Script>
+</s:BorderContainer>

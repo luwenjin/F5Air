@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:BorderContainer xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" 
+		 width="100%" height="100%" borderVisible="false"
+		 creationComplete="init()" xmlns:st="library://ns.tink.ws/flex/spark"
+		 >
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<s:layout>
+		<s:VerticalLayout gap="0"/>
+	</s:layout>
+	<s:states>
+		<s:State name="lite"/>
+		<s:State name="error"/>
+		<s:State name="full"/>
+	</s:states>
+	
+	<s:Group id="bodyBox" width="100%" height="100%">
+		<s:VGroup includeIn="lite" width="100%" height="100%" color="#444444" gap="10"
+				  horizontalAlign="center" paddingBottom="10" paddingLeft="10" paddingRight="10"
+				  paddingTop="10" verticalAlign="middle">
+			<s:BorderContainer width="100%" backgroundColor="#FFFFFF" borderColor="#CCCCCC"
+							   borderWeight="1" color="#444444" cornerRadius="5">
+				<s:layout>
+					<s:VerticalLayout paddingBottom="5" paddingLeft="5" paddingRight="5"
+									  paddingTop="5"/>
+				</s:layout>
+				<s:Label width="100%" fontWeight="normal" text="认证后可以："/>
+				<s:HGroup width="100%">
+					<s:Image width="16" height="16" source="@Embed('assets/images/tick.png')"/>
+					<s:Label width="100%" height="16" text="启动时自动载入上次的项目" verticalAlign="middle"/>
+				</s:HGroup>
+				<s:HGroup width="100%">
+					<s:Image width="16" height="16" source="@Embed('assets/images/tick.png')"/>
+					<s:Label width="100%" height="16" text="在屏幕边缘时能自动隐藏" verticalAlign="middle"/>
+				</s:HGroup>
+				<s:HGroup width="100%">
+					<s:Image width="16" height="16" source="@Embed('assets/images/tick.png')"/>
+					<s:Label width="100%" height="16" text="可在不刷页面的情况下更新CSS" verticalAlign="middle"/>
+				</s:HGroup>
+				<s:HGroup width="100%">
+					<s:Image width="16" height="16" source="@Embed('assets/images/tick.png')"/>
+					<s:Label width="100%" height="16" text="可以最小化到托盘图标" verticalAlign="middle"/>
+				</s:HGroup>
+				<mx:LinkButton label="了解更多" color="#888888" textDecoration="underline" click="on_btnKnowMore_CLICK(event)"/>
+			</s:BorderContainer>
+			
+			<s:Label width="100%" paddingTop="10" text="请输入认证邮箱" textAlign="left"/>
+			<s:TextInput id="txtEmail" width="100%" borderColor="#888888" fontStyle="normal"
+						 prompt="your@mail.com"/>
+			<s:Label text="请输入认证码" paddingTop="5" textAlign="left" width="100%" />
+			<s:TextInput id="txtCode" width="100%" borderColor="#888888" fontStyle="normal"/>
+		</s:VGroup>
+		
+		<s:VGroup includeIn="error" 
+				  width="100%" height="100%" gap="10" horizontalAlign="center"
+				  paddingBottom="10" paddingLeft="10" paddingRight="10" paddingTop="10" 
+				  >
+			<s:Label id="lblError" 
+					 width="100%" height="100%" textAlign="center" verticalAlign="middle" 
+					 text="{error_message}"
+					 />
+		</s:VGroup>
+		
+		<s:VGroup includeIn="full"
+				  width="100%" height="100%" gap="10" horizontalAlign="center" verticalAlign="middle"
+				  paddingBottom="10" paddingLeft="10" paddingRight="10" paddingTop="10" 
+				  >
+			<s:Image source="@Embed('assets/images/badge_tick.png')" width="48" height="48" />
+			<s:Label id="lblVerified" text="您已是认证用户，感谢您对F5的支持!" color="0x264409"/>
+		</s:VGroup>
+	</s:Group>
+	
+	<st:Line width="100%">
+		<st:stroke>
+			<st:SolidColorDash color="#aaaaaa" dash="5" gap="0"/>
+		</st:stroke>
+	</st:Line>
+
+	
+	<s:BorderContainer id="bottomBox" width="100%" height="50" borderVisible="false"
+					   backgroundColor.lite="#F1F1F1">
+		<s:layout>
+			<s:HorizontalLayout verticalAlign="middle" horizontalAlign="center" paddingLeft="5" paddingRight="5"/>
+		</s:layout>
+		<!-- lite -->
+		<s:Button id="btnActivate" includeIn="lite"
+				  label="开始认证" 
+				  width="50%" chromeColor="0x016FD0" height="25" color="0xFFFFFF"
+				  click="on_btnActivate_CLICK(event)"
+				  />
+		<s:Button label="关闭" includeIn="lite"
+				  width="50%" height="25" 
+				  click="on_CloseButton_CLICK(event)"
+				  />
+		
+		<!-- error -->
+		<s:Button id="btnError" height="25" includeIn="error"
+				  label="我知道了"
+				  click="on_btnError_CLICK(event)"
+				  />
+		
+		<!-- full -->
+		<s:Group width="100%" height="100%" includeIn="full">
+			
+			<s:Button label="关闭"
+					  height="25" verticalCenter="0" horizontalCenter="0"
+					  click="on_btnSuccess_CLICK(event)"
+					  />
+			<mx:LinkButton label="重新认证" includeIn="full"
+						   verticalCenter="0" right="0" color="0xaaaaaa" textDecoration="underline"
+						   click="on_lnkReactivate_CLICK(event)"
+						   />
+		</s:Group>
+	</s:BorderContainer>
+	
+	<fx:Script>
+		<![CDATA[
+			import com.adobe.serialization.json.JSON;
+			
+			import helpers.Utils;
+			
+			import managers.ClientData;
+			import managers.GlobalManager;
+			import managers.PowerEvent;
+			import managers.PowerManager;
+			
+			import mx.events.FlexEvent;
+			
+			[Bindable]
+			private var error_message:String;
+			
+			private var loader:URLLoader;
+			
+			private var gm:GlobalManager = GlobalManager.instance;
+			private var pm:PowerManager = PowerManager.instance;
+			private var cd:ClientData = ClientData.instance;
+			
+			public var layer:Group;
+			
+			private function init():void{
+				pm.addEventListener( PowerEvent.ACTIVATED, on_POWER_EVENT );
+				pm.addEventListener( PowerEvent.FAIL, on_POWER_EVENT );
+				pm.addEventListener( PowerEvent.ERROR, on_POWER_EVENT );
+				
+			}
+			
+			protected function on_btnActivate_CLICK(event:MouseEvent):void
+			{
+				if ( ! Utils.validateEmail( txtEmail.text ) )
+				{
+					this.showErrorMessage( '邮箱格式不正确，请检查一下' );
+					return ;
+				}
+				
+				if ( txtCode.text.length < 10 )
+				{
+					this.showErrorMessage( '认证码格式不正确，请检查一下' );
+					return ;
+				}
+				pm.activate( txtEmail.text, txtCode.text );
+			}
+			
+			protected function showErrorMessage( message:String ):void
+			{
+				this.error_message = message;
+				this.currentState = 'error';
+			}
+			
+			protected function on_btnError_CLICK(event:MouseEvent):void
+			{
+				this.currentState = 'lite';
+			}
+			
+			protected function on_POWER_EVENT( event:PowerEvent ):void
+			{
+				if ( event.type == PowerEvent.ACTIVATED )
+				{
+					this.txtEmail.text = '';
+					this.txtCode.text = '';
+					this.currentState = 'full';
+				}
+				else if ( event.type == PowerEvent.FAIL || event.type == PowerEvent.ERROR )
+				{
+					this.showErrorMessage( event.data.message );
+				}
+				
+			}
+			
+			protected function on_btnSuccess_CLICK(event:MouseEvent):void
+			{
+				close();
+			}
+			
+			protected function on_lnkReactivate_CLICK(event:MouseEvent):void
+			{
+				this.currentState = 'lite';
+			}
+			
+			protected function on_btnKnowMore_CLICK(event:MouseEvent):void
+			{
+				var req:URLRequest = new URLRequest( 'http://www.getf5.com/?knowmore' );
+				navigateToURL(req);
+			}
+			
+			protected function on_STATE_CHANGE_COMEPELTE(event:FlexEvent):void
+			{
+				if ( this.currentState == 'full' ){
+					this.lblVerified.text = '已认证：'+ cd.email;
+				}
+			}
+			
+			public function open():void
+			{
+				layer.removeAllElements();
+				if ( pm.isFull ){
+					this.currentState = 'full';
+				}else{
+					this.currentState = 'lite';
+				}
+				layer.addElement( this );
+			}
+			
+			public function close():void
+			{
+				layer.removeAllElements();
+				this.dispatchEvent( new Event( Event.CLOSE ) );
+			}
+			
+			protected function on_CloseButton_CLICK(event:MouseEvent):void
+			{
+				this.close();
+			}
+			
+		]]>
+	</fx:Script>
+</s:BorderContainer>

@@ -1,0 +1,317 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:VGroup xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" 
+		 xmlns:components="views.components.*"
+		 width="100%" height="100%"
+		 paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5"
+		 creationComplete="init()"
+		 addedToStage="on_ADDED_TO_STAGE(event)"
+		 >
+	
+	<fx:Metadata>
+		[ResourceBundle("ProjectPage")]
+		[Event(name="close", type="mx.events.CloseEvent")]
+	</fx:Metadata>
+	
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+
+	<components:HintBox width="100%"/>
+	<components:FolderBar id="folderBar"
+						  select="folder_SELECT(event)"
+						  />
+	
+	<s:Group id="treeContainer" width="100%" height="100%" /> 
+	
+	<s:HGroup width="100%">
+		<s:TextInput id="txtUrl" 
+					 width="100%" color="0x444444" borderColor="0xCCCCCC" 
+					 editable="false" 
+					 />
+		<s:Image id="btnCopy"
+				 width="16" height="22" buttonMode="true" 
+				 toolTip="复制网址"
+				 click="on_btnCopy_CLICK(event)"
+				 />
+	</s:HGroup>
+	
+	<fx:Script>
+		<![CDATA[
+			import com.demonsters.debugger.MonsterDebugger;
+			
+			import flash.net.dns.AAAARecord;
+			
+			import flex.lang.reflect.Field;
+			
+			import helpers.FileType;
+			import helpers.UrlParts;
+			
+			import managers.ClientData;
+			import managers.GlobalManager;
+			
+			import mx.collections.XMLListCollection;
+			import mx.controls.ToolTip;
+			import mx.controls.Tree;
+			import mx.events.CloseEvent;
+			import mx.events.DragEvent;
+			import mx.events.FlexEvent;
+			import mx.events.ListEvent;
+			import mx.graphics.SolidColor;
+			import mx.managers.ToolTipManager;
+			
+			import views.components.LocalTree;
+			import views.components.RemoteTree;
+			
+			import webserver.WebServer;
+			import webserver.events.RouterEvent;
+			import webserver.routers.BounceRouter;
+			import webserver.routers.FilesRouter;
+			import webserver.routers.IRouter;
+
+			private var _rootFolder:File;
+			
+			private var change_click_actions:Array = [];
+			
+			private var last_selected_item:*;
+			
+			public var tree:Tree;
+			
+			private var gm:GlobalManager = GlobalManager.instance;
+			private var cd:ClientData = ClientData.instance;
+			private var server:WebServer = WebServer.instance;
+			
+			[Embed(source="assets/images/page_copy.png")]
+			private var icon_copy:Class;
+			
+			[Embed(source="assets/images/page_white_copy.png")]
+			private var icon_copied:Class;
+
+			private function init():void
+			{
+				btnCopy.source = icon_copy;
+				MonsterDebugger.initialize(this);
+			}
+			
+			private function unbindTreeEvents():void
+			{
+				tree.removeEventListener( DragEvent.DRAG_START , this.on_TreeItem_DRAG_START ); 
+				tree.removeEventListener( ListEvent.ITEM_CLICK , this.on_TreeItem_CLICK );
+				tree.removeEventListener( ListEvent.ITEM_DOUBLE_CLICK , this.on_TreeItem_DOUBLE_CLICK ); 
+				tree.removeEventListener( ListEvent.CHANGE , this.on_TreeItem_CHANGE );
+			}
+			
+			private function bindTreeEvents():void
+			{
+				tree.addEventListener( DragEvent.DRAG_START , this.on_TreeItem_DRAG_START ); 
+				tree.addEventListener( ListEvent.ITEM_CLICK , this.on_TreeItem_CLICK ); 
+				tree.addEventListener( ListEvent.ITEM_DOUBLE_CLICK , this.on_TreeItem_DOUBLE_CLICK );
+				tree.addEventListener( ListEvent.CHANGE , this.on_TreeItem_CHANGE );
+			}
+			
+			protected function on_TreeItem_DRAG_START(event:DragEvent):void
+			{
+				var transfer:Clipboard = new Clipboard();
+				var item:* = tree.selectedItem;
+				
+				if( server.mode == WebServer.STATIC )
+				{
+					transfer.setData( ClipboardFormats.FILE_LIST_FORMAT, [ item ], false );
+					transfer.setData( ClipboardFormats.URL_FORMAT, [ this.server.filesRouter.getFileUrl( item ) ], false );
+					//用这个来判断是不是从自己地方拖出去的，如果是，就不接受 drop
+					transfer.setData( ClipboardFormats.BITMAP_FORMAT, new BitmapData(1,1) );
+				}
+				else if ( server.mode == WebServer.DYNAMIC )
+				{
+					var node:XML = item as XML;
+					var url:String = this.server.proxiesRouter.getNodeUrl( node )
+					transfer.setData( ClipboardFormats.URL_FORMAT, [ url ], false );
+					
+					if ( node.@exists && server.proxiesRouter.rootFolder ){
+						var file:File = server.proxiesRouter.rootFolder.resolvePath( UrlParts.ensureRelative(node.@path) );
+						if ( file && file.exists && !file.isDirectory )
+							transfer.setData( ClipboardFormats.FILE_LIST_FORMAT, [ file ], false );
+					}
+					//用这个来判断是不是从自己地方拖出去的，如果是，就不接受 drop
+					transfer.setData( ClipboardFormats.BITMAP_FORMAT,  new BitmapData(1,1) );
+				}
+				else
+				{
+					return ;
+				}
+				
+				NativeDragManager.dropAction = NativeDragActions.COPY;
+				NativeDragManager.doDrag( this, transfer );
+			}
+			
+			protected function on_TreeItem_CLICK(event:ListEvent):void
+			{
+				if ( change_click_actions.indexOf('change') >= 0 )
+				{
+					// click on new item, select file
+					var url:String;
+					if ( server.mode == WebServer.DYNAMIC )
+						url = server.proxiesRouter.getNodeUrl( tree.selectedItem as XML );
+					else if ( server.mode == WebServer.STATIC )
+						url = server.filesRouter.getFileUrl( tree.selectedItem as File );
+					
+					if ( url ){
+						this.txtUrl.text = url;
+						this.btnCopy.source = icon_copy;	
+					}
+				}					 
+				else 
+				{ 
+					// click on selected item, deselect file
+					this.txtUrl.text = this.server.rootUrl;
+					this.btnCopy.source = icon_copy;
+					if ( tree && tree.selectedItem )
+					{
+						this.last_selected_item = tree.selectedItem;
+						tree.selectedItem = null;
+					}
+				}
+				this.change_click_actions = [];
+			}
+			
+			protected function on_TreeItem_DOUBLE_CLICK(event:ListEvent):void
+			{
+				event.preventDefault();
+				trace( event ) ;
+				if ( ! tree ) return;
+				
+				if ( server.mode == WebServer.STATIC )
+				{
+					var f:File = tree.selectedItem as File;
+					if ( !f ) f = this.last_selected_item as File;
+					if ( !f ) return;
+					
+					var urlreq1:URLRequest = new URLRequest( this.server.filesRouter.getFileUrl( f ) );
+					navigateToURL(urlreq1);
+
+				}
+				else if ( server.mode == WebServer.DYNAMIC )
+				{
+					var node:XML = tree.selectedItem as XML;
+					if ( !node ) node = this.last_selected_item as XML;
+					if ( !node ) return;
+					
+					var urlreq2:URLRequest = new URLRequest( this.server.proxiesRouter.getNodeUrl( node ) );
+					navigateToURL( urlreq2 );
+				}
+			}
+			
+			protected function on_TreeItem_CHANGE(event:ListEvent):void
+			{
+				trace( 'change' );
+				this.change_click_actions.push('change');
+			}
+			
+			protected function on_window_ACTIVATE(event:Event):void
+			{
+				if ( server.mode == WebServer.STATIC && tree as LocalTree ) 
+					( tree as LocalTree ).refresh();
+				if ( server.mode == WebServer.DYNAMIC && tree as RemoteTree )
+					( tree as RemoteTree ).refresh();
+				//how about remote
+			}
+			
+			protected function on_btnCloseFolder_CLICK(event:MouseEvent):void
+			{
+				cd.lastProjectNativePath = null;
+			    this.dispatchEvent( new CloseEvent( CloseEvent.CLOSE ) );
+				if ( server.mode == WebServer.STATIC )
+					( tree as LocalTree ).clear();
+			}
+			
+			protected function on_btnCopy_CLICK(event:MouseEvent):void
+			{
+				Clipboard.generalClipboard.clear();
+				Clipboard.generalClipboard.setData(ClipboardFormats.TEXT_FORMAT, txtUrl.text);
+				
+				btnCopy.source = icon_copied;
+			}
+			
+			protected function on_ADDED_TO_STAGE(event:Event):void
+			{
+				stage.nativeWindow.addEventListener( Event.ACTIVATE, on_window_ACTIVATE );
+//				gm.mainWin.addEventListener(Event.ACTIVATE, on_window_ACTIVATE);
+				this.server.addEventListener( RouterEvent.ADD, on_router_ADD );
+				
+				if ( this.server.proxiesRouter )
+					this.initComponentsByRouter( this.server.proxiesRouter );
+				else if ( this.server.filesRouter )
+					this.initComponentsByRouter( this.server.filesRouter );
+					
+			}
+			
+			private function on_router_ADD( event:RouterEvent ):void
+			{
+				this.initComponentsByRouter( event.router );
+			}
+			
+			public function initComponentsByRouter( router:IRouter ):void
+			{
+				if ( !router ) return;
+				
+				this.folderBar.router = router;
+				this.txtUrl.text = server.rootUrl;
+				
+				
+				if ( tree )
+				{
+					this.unbindTreeEvents();
+					this.treeContainer.removeElement( tree );
+				}
+				
+				if ( router as BounceRouter )
+				{
+					tree = new RemoteTree();
+					
+					var treeData:XML = ( router as BounceRouter ).tree;
+					tree.dataProvider = treeData;
+					tree.validateNow();
+					expandTreeLater();
+				}
+				else if ( router as FilesRouter )
+				{
+					tree = new LocalTree();
+					( tree as LocalTree ).directory = ( router as FilesRouter ).rootFolder;
+				}
+				this.bindTreeEvents();
+				this.treeContainer.addElement( tree );
+				tree.percentHeight = 100;
+				tree.percentWidth = 100;
+				
+				
+			}
+			
+			private function expandTreeLater():void
+			{
+				var timer:Timer = new Timer( 100, 1 );
+				timer.addEventListener( TimerEvent.TIMER_COMPLETE, on_expandTreeTimer_COMPLETE );
+				timer.start();
+			}
+			
+			
+			protected function on_expandTreeTimer_COMPLETE(event:TimerEvent):void
+			{
+				var timer:Timer = event.target as Timer;
+				timer.removeEventListener( TimerEvent.TIMER_COMPLETE, on_expandTreeTimer_COMPLETE );
+				if ( tree && tree as RemoteTree ){
+					tree.selectedIndex = 0;
+					tree.expandChildrenOf( tree.selectedItem, true );
+					tree.selectedIndex = -1;
+				}
+			}
+			
+			protected function folder_SELECT(event:Event):void
+			{
+				if ( tree as RemoteTree ) 
+					( tree as RemoteTree ).refresh();
+			}
+			
+		]]>
+	</fx:Script>
+</s:VGroup>

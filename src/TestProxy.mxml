@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:WindowedApplication xmlns:fx="http://ns.adobe.com/mxml/2009"
+					   xmlns:s="library://ns.adobe.com/flex/spark"
+					   xmlns:mx="library://ns.adobe.com/flex/mx"
+					   xmlns:pages="views.pages.*"
+					   width="338" height="548" 
+					   creationComplete="init()"
+					   addedToStage="on_ADDED_TO_STAGE(event)" xmlns:components="views.components.*"
+					   >
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<s:Label id="lblUrl" />
+	<components:RemoteTree id="remoteTree" x="10" y="38" width="318" click="remoteTree_clickHandler(event)"/>
+	
+	<mx:FileSystemTree x="10" y="283" width="319" height="208">
+		
+	</mx:FileSystemTree>
+	
+	<components:FolderBar id="fb" currentState="remote">
+		
+	</components:FolderBar>
+	<fx:Script>
+		<![CDATA[
+			import com.adobe.net.URI;
+			
+			import helpers.UrlParts;
+			import helpers.Utils;
+			
+			import org.httpclient.HttpClient;
+			import org.httpclient.HttpRequest;
+			import org.httpclient.events.HttpResponseEvent;
+			
+			import webserver.WebServer;
+			import webserver.respond.BounceResponder;
+			import webserver.routers.BounceRouter;
+			import webserver.routers.FilesRouter;
+			
+			private var server:WebServer = WebServer.instance;
+			
+			
+			private var timer:Timer;
+			private function init():void
+			{
+
+				var f:File = new File('d:/temp');
+				trace( f );
+			}
+			
+			protected function on_ADDED_TO_STAGE(event:Event):void
+			{
+				server.removeEventListener(MouseEvent.CLICK, on_ADDED_TO_STAGE );
+//				this.page.tree.showRoot = false;
+//				this.page.tree.dataProvider = 
+//					<node label="root">
+//						<node labe="fuck"></node>
+//					</node>;
+//				this.page.tree.directory = new File('D:/RESOURCE/Icons/silk/icons');
+			}
+			
+			protected function remoteTree_clickHandler(event:MouseEvent):void
+			{
+				// TODO Auto-generated method stub
+				remoteTree.refresh();
+			}
+			
+		]]>
+	</fx:Script>
+</s:WindowedApplication>

@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:WindowedApplication xmlns:fx="http://ns.adobe.com/mxml/2009"
+					   xmlns:s="library://ns.adobe.com/flex/spark"
+					   xmlns:mx="library://ns.adobe.com/flex/mx"
+					   xmlns:pages="views.pages.*"
+					   xmlns:components="views.components.*" 
+					   creationComplete="init()"
+					   addedToStage="on_ADDED_TO_STAGE(event)"
+					   visible="false"
+					   >
+	<fx:Metadata>
+		[ResourceBundle("content")]
+	</fx:Metadata>
+	<fx:Style>
+		@namespace s "library://ns.adobe.com/flex/spark";
+		@namespace mx "library://ns.adobe.com/flex/mx";
+		@namespace pages "views.pages.*";
+		@namespace components "views.components.*";
+		
+		@namespace s "library://ns.adobe.com/flex/spark";
+		@namespace mx "library://ns.adobe.com/flex/mx";
+		
+		* { 
+			fontFamily: simsun, Hei;
+		}
+		mx|ToolTip{
+			fontSize: 12;
+			backgroundColor: #000000;
+			backgroundAlpha:0.7;
+			color: #ffffff;
+		}
+		s|Window{
+			fontSize: 12;
+		}
+
+	</fx:Style>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import air.update.ApplicationUpdaterUI;
+			import air.update.events.UpdateEvent;
+			
+			import com.demonsters.debugger.MonsterDebugger;
+			
+			import managers.ClientData;
+			import managers.GlobalManager;
+			import managers.PowerManager;
+			import managers.StatManager;
+			
+			import views.windows.F5Window;
+			
+			private var gm:GlobalManager = GlobalManager.instance;
+			private var pm:PowerManager = PowerManager.instance;
+			private var cd:ClientData = ClientData.instance;
+			private var sm:StatManager;
+			
+			private var updater:ApplicationUpdaterUI;
+			
+			private var update_timer:Timer;
+			
+			
+			private function init():void
+			{
+				var win:F5Window = new F5Window();
+			 	if ( NativeApplication.supportsSystemTrayIcon && pm.isFull )
+					win.type = NativeWindowType.LIGHTWEIGHT;
+				win.open();
+				
+				update_timer = new Timer(5000, 1);
+				update_timer.addEventListener( TimerEvent.TIMER_COMPLETE, on_update_timer_COMPLETE );
+				update_timer.start();
+
+				MonsterDebugger.initialize(this);
+			}
+			
+			protected function init_updater():void
+			{
+				updater.configurationFile = new File('app:/config/updaterConfig.xml');
+				updater.addEventListener(UpdateEvent.INITIALIZED, on_upadter_INITIALIZED);
+				updater.isNewerVersionFunction = this.isNewerVersionFunction
+				updater.initialize();
+			}
+			
+			protected function on_upadter_INITIALIZED(event:UpdateEvent):void
+			{
+				updater.checkNow();
+			}
+			
+			protected function isNewerVersionFunction(currentVersion:String, updateVersion:String):Boolean 
+			{
+				var local_vers:Array = currentVersion.split('.');
+				var remote_vers:Array = updateVersion.split('.');
+				var local_ver:int;
+				var remote_ver:int; 
+				var local_points:Number = 0; 
+				var remote_points:Number = 0;
+				
+				for (var i:int=0; i<Math.max(local_vers.length, remote_vers.length); i++)
+				{
+					local_ver = local_vers.length <= i ? 0 : int(local_vers[i]);
+					remote_ver = remote_vers.length <= i ? 0 : int(remote_vers[i]);
+					local_points = local_points * 100 + local_ver;
+					remote_points = remote_points * 100 + remote_ver;
+				}
+				return remote_points > local_points;
+			}
+			
+			protected function on_update_timer_COMPLETE(event:TimerEvent):void
+			{
+				this.updater= new ApplicationUpdaterUI();
+				this.init_updater();
+				sm = StatManager.instance;
+			}
+			
+			protected function on_ADDED_TO_STAGE(event:Event):void
+			{
+				gm.backWin = this.stage.nativeWindow;
+			}
+			
+			
+		]]>
+	</fx:Script>
+</s:WindowedApplication>

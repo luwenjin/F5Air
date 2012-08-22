@@ -1,0 +1,8 @@
+.FlexUnitSettings
+.settings
+.actionScriptProperties
+.flexProperties
+.project
+buildF5.py
+/bin-debug
+/bin-release

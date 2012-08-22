@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Tree xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" 
+		 xmlns:components="views.components.*"
+		 showRoot="true" dragEnabled="true" doubleClickEnabled="true"
+		 labelField="@label" dataTipField="@location" iconFunction="FileType.getNodeIcon"
+		 borderColor="#CCCCCC" color="#444444" itemRenderer="views.components.RemoteTreeItemRenderer"
+		 creationComplete="init()"
+		 >
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import helpers.FileType;
+			import helpers.UrlParts;
+			import helpers.Utils;
+			
+			import mx.collections.Sort;
+			import mx.collections.SortField;
+			import mx.collections.XMLListCollection;
+			import mx.events.TreeEvent;
+			
+			import org.httpclient.http.Delete;
+			
+			import webserver.WebServer;
+			
+			private var server:WebServer = WebServer.instance;
+			
+			private function init():void
+			{
+				this.addEventListener( TreeEvent.ITEM_OPENING, on_ITEM_OPENING );
+			}
+			
+			public function refresh():void
+			{
+				for each( var folderXML:XML in this.openItems )
+				{
+					server.proxiesRouter.updateNode( folderXML );
+					for each( var xml:XML in folderXML.children() ){
+						server.proxiesRouter.updateNode( xml );
+					}
+				}
+				if ( server.proxiesRouter && server.proxiesRouter.rootFolder )
+				{
+					var root:XMLList = ( dataProvider as XMLListCollection ).source
+					var x:XMLList = root..node.( hasOwnProperty('@exists') && @exists==false );
+					for each( var xx:XML in x ){
+						delete x[0];
+					}	
+				}
+			}
+			
+
+			
+			protected function on_ITEM_OPENING(event:TreeEvent):void
+			{
+				if( server.proxiesRouter && server.proxiesRouter.rootFolder ){
+					var f:File = server.proxiesRouter.rootFolder.resolvePath( UrlParts.ensureRelative( event.item.@path ) );
+					server.proxiesRouter.expandFolderNode( event.item as XML, f );
+				}
+			}
+			
+		]]>
+	</fx:Script>
+</mx:Tree>

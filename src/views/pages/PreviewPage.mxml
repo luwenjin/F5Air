@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="320" height="480"
+		 
+		 >
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<mx:FileSystemTree id="tree"
+					   width="100%" height="100%"  alpha="0.5"
+					   />
+	<fx:Script>
+		<![CDATA[
+			
+			private var _rootFolder:File;
+			
+			public function get rootFolder():File
+			{
+				return _rootFolder;
+			}
+			
+			public function set rootFolder(value:File):void
+			{
+				_rootFolder = value;
+				if ( value ){
+					tree.directory = value;
+				}else{
+					tree.clear();
+				}
+				
+			}
+		]]>
+	</fx:Script>
+</s:Group>

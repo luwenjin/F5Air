@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:VGroup xmlns:fx="http://ns.adobe.com/mxml/2009"
+		  xmlns:s="library://ns.adobe.com/flex/spark"
+		  xmlns:mx="library://ns.adobe.com/flex/mx"
+		  xmlns:components="views.components.*"
+		  width="100%" height="100%" color="0x444444" horizontalAlign="center"
+		  mouseEnabledWhereTransparent="true" verticalAlign="middle" paddingBottom="10" paddingLeft="5" paddingRight="5" paddingTop="5"
+		  currentState="normal"
+		  creationComplete="init()"
+		  >
+	<fx:Metadata>
+		[ResourceBundle("WelcomePage")]
+	</fx:Metadata>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<s:states>
+		<s:State name="normal"/>
+		<s:State name="help"/>
+	</s:states>
+	<s:VGroup width="100%" height="100%" verticalAlign="middle" horizontalAlign="center" includeIn="normal">
+		<s:Image source="@Embed('assets/images/arrow_down.png')" />
+		<s:Label width="100%" paddingBottom="0" text="请拖入网站所在目录或URL" textAlign="center"/>
+	</s:VGroup>
+	
+	<s:TextArea id="help" width="100%" height="100%" borderColor="#cccccc" includeIn="help" text="{help_text}" />
+	
+	<!--s:HGroup  horizontalAlign="center" width="190">
+		<s:VGroup width="100%" horizontalAlign="center">
+			<s:Image source="@Embed('assets/images/folder_64.png')"/>
+			<s:Label width="100%" color="#AAAAAA" text="[静态页面]" textAlign="center"/>
+		</s:VGroup>
+		<s:Label width="24" height="64" color="#AAAAAA" text="或" textAlign="center"
+				 verticalAlign="middle"/>
+		<s:VGroup width="100%" horizontalAlign="center">
+			<s:Label width="100%" height="64" color="#80B500" fontFamily="Impact" fontSize="48"
+					 text="URL" textAlign="center" verticalAlign="middle">
+				<s:filters>
+					<mx:DropShadowFilter angle="90" alpha=".3" distance="2" />
+				</s:filters>
+			</s:Label>
+			<s:Label width="100%" color="#AAAAAA" text="[动态页面]" textAlign="center"/>
+		</s:VGroup>
+	</s:HGroup-->
+	<s:Button id="helpButton" label="帮助：如何开始使用" click="helpButton_clickHandler(event)"/>	
+
+	<fx:Script>
+		<![CDATA[
+			
+			[Bindable]
+			private var help_text:String;
+			
+			private function init():void
+			{
+				help_text = 
+					'如配置动态网站环境\n' + 
+					'==================\n' +
+					'1）在浏览器中打开网站\n' +
+					'2）拖拽网站URL到F5中\n' +
+					'3）拖拽网站的“根目录”到F5中\n' +
+					'\n' +
+					'如何配置静态网站环境\n' +
+					'====================\n' +
+					'拖拽网站目录到F5中\n' +
+					'\n' +
+					'如何调试页面\n' +
+					'============\n' +
+					'1）从F5中拖拽页面到浏览器中浏览\n' +
+					'2）从F5中拖拽页面到编辑器中编辑\n' +
+					'3）编辑器保存时，浏览器中的页面会自动刷新';
+			}
+			
+			protected function helpButton_clickHandler(event:MouseEvent):void
+			{
+				if ( helpButton.label == '帮助：如何开始使用' ){
+					currentState = 'help';
+					helpButton.label = '关闭帮助';
+				}else{
+					currentState = 'normal';
+					helpButton.label = '帮助：如何开始使用';
+				}
+			}
+			
+		]]>
+	</fx:Script>
+</s:VGroup>

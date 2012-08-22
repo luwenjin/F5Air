@@ -1,0 +1,557 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Window xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		   xmlns:s="library://ns.adobe.com/flex/spark" 
+		   xmlns:mx="library://ns.adobe.com/flex/mx"
+		   xmlns:pages="views.pages.*"
+		   xmlns:components="views.components.*"
+		   title="F5"
+		   layout="absolute" width="300" height="480" minWidth="240" minHeight="400" borderVisible="false"
+		   maximizable="false" systemChrome="none" showStatusBar="false" showTitleBar="false" visible="false" dropShadowVisible="false" showGripper="true"
+		   alwaysInFront="false"
+		   creationComplete="init()"
+		   >
+	<fx:Metadata>
+		[ResourceBundle("content")]
+	</fx:Metadata>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<s:TitleWindow id="window" left="0" right="0" top="0" bottom="0" borderColor="0x444444" dropShadowVisible="false" 
+				   skinClass="views.skins.F5WindowSkin"
+				   title="F5"
+				   >
+		<s:layout>
+			<s:VerticalLayout/>
+		</s:layout>
+		
+		<pages:MainPage id="page" width="100%" height="100%"/>	
+		
+		<s:controlBarContent>
+			<s:Label id="lnkAuthorize"
+					 includeInLayout="false"
+					 buttonMode="true" text="未认证" height="16" verticalAlign="middle" textDecoration="underline" color="0x888888"
+					 />
+			<s:Image id="btnAuthorize" visible="false" width="16" height="16" buttonMode="true"
+					 includeInLayout="false" source="@Embed('assets/images/tick.png')"
+					 toolTip="已认证"/>
+			<s:Image id="btnFeedback" width="16" height="16" buttonMode="true"
+					 source="@Embed('assets/images/comment_edit.png')" toolTip="反馈"/>
+		</s:controlBarContent>
+		
+	</s:TitleWindow>
+	
+	<!--s:Image id="brResizer" right="2" bottom="2" width="12" height="12" alpha="0.5" buttonMode="true" depth="1000"
+			 smooth="false" source="@Embed('assets/images/brResize.png')"/-->
+	
+	<fx:Script>
+		<![CDATA[
+			import change.ChangesWatcher;
+			
+			import com.adobe.air.notification.Purr;
+			import com.demonsters.debugger.MonsterDebugger;
+			
+			import managers.ClientData;
+			import managers.DialogManager;
+			import managers.GlobalManager;
+			import managers.PowerEvent;
+			import managers.PowerManager;
+			
+			import mx.events.CloseEvent;
+			import mx.events.FlexNativeWindowBoundsEvent;
+			
+			import spark.components.Application;
+			import spark.components.Group;
+			import spark.components.ToggleButton;
+			
+			import views.skins.F5WindowSkin;
+			
+			import webserver.WebServer;
+			
+			private var f5skin:F5WindowSkin;
+			
+			private var pm:PowerManager = PowerManager.instance;
+			private var dm:DialogManager = DialogManager.instance;
+			private var gm:GlobalManager = GlobalManager.instance;
+			private var cd:ClientData = ClientData.instance;
+			private var server:WebServer = WebServer.instance;
+			private var watcher:ChangesWatcher = ChangesWatcher.instance;
+			
+			private var dockSide:String = "";
+			private var slideStatus:String = "";
+			private var slideInTimer:Timer = new Timer(300,1);
+			private var inited:Boolean = false;
+//			private var displayState:String;
+			
+			
+			[Embed(source="assets/images/icon16.png")]
+			private var Icon16:Class;
+			
+			private var purr:Purr = new Purr(1);
+			
+			private var trayMenu:NativeMenu;
+			private var trayMenuItem_EXIT:NativeMenuItem = new NativeMenuItem('退出');
+			private var trayMenuItem_SHOW_HIDE:NativeMenuItem = new NativeMenuItem('显示/隐藏');
+			
+			private function init():void
+			{
+				this.addEventListener( MouseEvent.MOUSE_OVER, on_MOUSE_OVER );
+				this.addEventListener( MouseEvent.MOUSE_OUT, on_MOUSE_OUT );
+				this.addEventListener( MouseEvent.MOUSE_MOVE, on_MOUSE_OVER );
+				this.addEventListener( NativeDragEvent.NATIVE_DRAG_ENTER, on_NATIVE_DRAG_ENTER );
+				this.addEventListener( NativeDragEvent.NATIVE_DRAG_EXIT, on_NATIVE_DRAG_EXIT );
+				this.addEventListener( FlexNativeWindowBoundsEvent.WINDOW_MOVE, on_MOVE );
+				this.addEventListener( Event.CLOSING, exit );
+				
+				this.window.addEventListener(CloseEvent.CLOSE, exit);
+				this.window.addEventListener(MouseEvent.MOUSE_DOWN, on_window_MOUSE_DOWN);
+				this.window.addEventListener(MouseEvent.MOUSE_UP, on_window_MOUSE_UP);
+				
+				NativeApplication.nativeApplication.addEventListener(InvokeEvent.INVOKE, on_INVOKE);
+				
+				this.btnFeedback.addEventListener( MouseEvent.CLICK, on_btnFeedback_CLICK );
+				this.btnAuthorize.addEventListener( MouseEvent.CLICK, on_authorizeEntry_CLICK );
+				this.lnkAuthorize.addEventListener( MouseEvent.CLICK, on_authorizeEntry_CLICK );
+
+//				this.brResizer.addEventListener(MouseEvent.MOUSE_DOWN, on_brResizer_MOUSE_DOWN);
+				
+				this.slideInTimer.addEventListener( TimerEvent.TIMER_COMPLETE, immediateSlideIn )
+				
+				pm.addEventListener( PowerEvent.ACTIVATED, on_POWER_ACTIVATED );
+				
+				this.f5skin = window.skin as F5WindowSkin;
+				if ( this.f5skin )
+				{
+					this.f5skin.minimizeButton.addEventListener( MouseEvent.CLICK, on_minimizeButton_CLICK );
+					
+					this.f5skin.pinButton.selected = cd.alwaysInFront;
+					this.f5skin.pinButton.addEventListener( MouseEvent.CLICK, on_pinButton_CLICK );
+				}
+					
+				
+				if ( pm.isFull ){
+					btnAuthorize.includeInLayout = true;
+					btnAuthorize.visible = true;
+				}else{
+					lnkAuthorize.includeInLayout = true;
+					lnkAuthorize.visible = true;
+				}
+				
+				gm.mainWin = this.stage.nativeWindow;
+				gm.mainWin.addEventListener(NativeWindowDisplayStateEvent.DISPLAY_STATE_CHANGE, on_DISPLAY_STATE_CHANGE);
+				
+				
+				if ( NativeApplication.supportsSystemTrayIcon && pm.isFull  ){
+					this.prepareSystemTrayIcon();
+				}
+			}
+			
+			
+			protected function prepareSystemTrayIcon():void
+			{
+				var sysTrayIcon:SystemTrayIcon = NativeApplication.nativeApplication.icon as SystemTrayIcon;
+				sysTrayIcon.tooltip = 'F5';
+				sysTrayIcon.addEventListener( MouseEvent.CLICK, toggleShowHide );
+				sysTrayIcon.addEventListener( ScreenMouseEvent.RIGHT_CLICK, on_sysTrayIcon_RIGHT_CLICK );
+				NativeApplication.nativeApplication.icon.bitmaps = [(new Icon16()).bitmapData];
+				sysTrayIcon.menu = this.createTrayMenu();
+			}
+			
+			protected function createTrayMenu():NativeMenu
+			{
+				trayMenu = new NativeMenu();
+				
+				trayMenu.addItem( this.trayMenuItem_SHOW_HIDE );
+				this.trayMenuItem_SHOW_HIDE.addEventListener(Event.SELECT, on_trayMenuItem_SHOW_HIDE);
+				
+				trayMenu.addItem( new NativeMenuItem("", true) );
+				trayMenu.addItem( this.trayMenuItem_EXIT );
+				this.trayMenuItem_EXIT.addEventListener(Event.SELECT, this.exit);
+				
+				return trayMenu;
+			}
+
+			
+			protected function toggleShowHide(event:*=null):void
+			{
+				if ( this.slideStatus == 'in' || this.visible == false || this.nativeWindow.visible == false)
+				{
+					this.showAnyway();
+				}
+				else if ( this.slideStatus == 'out') 
+				{
+					this.hideAnyway();
+				}
+				else
+				{
+					this.showAnyway();
+				}
+			}
+			
+			
+			protected function on_sysTrayIcon_RIGHT_CLICK(event:ScreenMouseEvent):void
+			{
+				if ( this.nativeWindow.visible && this.slideStatus != 'in' )
+				{
+					this.trayMenuItem_SHOW_HIDE.label = '隐藏';
+				}
+				else
+				{
+					this.trayMenuItem_SHOW_HIDE.label = '显示';
+				}
+			}
+			
+			protected function on_trayMenuItem_SHOW_HIDE(event:Event):void
+			{
+				if ( this.nativeWindow.visible && this.slideStatus != 'in' )
+				{
+					this.hideAnyway();
+				}
+				else
+				{
+					this.showAnyway();
+				}
+			}
+			
+			
+			protected function on_INVOKE(event:InvokeEvent):void
+			{
+				if ( ! inited )
+				{
+					this.init_window_position();
+					this.inited = true;
+					this.toggleShowHide();
+				}
+				else
+				{
+					if ( NativeApplication.supportsDockIcon ){
+						this.toggleShowHide();
+					}else{
+						this.showAnyway();
+					}
+				}
+					
+				
+			}
+			
+			
+			protected function showAnyway(event:*=null):void
+			{
+				if ( this.slideStatus == 'in' ){
+					this.slideOut();
+					if ( this.nativeWindow.visible == false ){
+						this.visible = true;
+						this.nativeWindow.visible = true;
+					}
+						
+				}else{
+					this.visible = true;
+					this.nativeWindow.visible = false;
+					this.nativeWindow.visible = true;
+					
+					var front:Boolean = this.alwaysInFront;
+					this.nativeWindow.alwaysInFront = true;
+					this.nativeWindow.alwaysInFront = front;	
+				}
+			}
+			
+			
+			protected function hideAnyway():void
+			{
+				if ( this.slideStatus == 'out' )
+					this.immediateSlideIn();
+				else
+					this.nativeWindow.visible = false;
+			}
+
+			
+			protected function init_window_position():void
+			{
+				gm.mainWin.x = cd.x;
+				gm.mainWin.y = cd.y;
+				gm.mainWin.width = cd.w;
+				gm.mainWin.height = cd.h;
+				
+				var covered_screens:Array = Screen.getScreensForRectangle( gm.mainWin.bounds );
+				if ( covered_screens.length == 0 )
+				{
+					if ( gm.mainWin.x + gm.mainWin.bounds.width > Screen.mainScreen.bounds.width )
+						gm.mainWin.x = Screen.mainScreen.bounds.width - gm.mainWin.bounds.width;
+					
+					if ( gm.mainWin.x < Screen.mainScreen.bounds.left )
+						gm.mainWin.x = Screen.mainScreen.bounds.left;
+					
+					if ( gm.mainWin.y + gm.mainWin.bounds.height > Screen.mainScreen.bounds.height )
+						gm.mainWin.y = Screen.mainScreen.bounds.height - gm.mainWin.bounds.height;
+					
+					if ( gm.mainWin.y < Screen.mainScreen.bounds.top )
+						gm.mainWin.y = Screen.mainScreen.bounds.top;
+				}
+				
+				var side:String = this.getDockableSide( cd.x, cd.y, true );
+				if ( side ){
+					this.dockSide = side;
+					this.slideOut(true);
+				}
+				
+				if ( pm.isFull == false ) this.alwaysInFront = false;
+			}
+			
+			protected function getDockableSide(x:int, y:int, force:Boolean=false):String
+			{
+				if ( pm.isFull != true && force==false ) return '';
+				
+				var covered_screens:Array = Screen.getScreensForRectangle( gm.mainWin.bounds );
+				if ( covered_screens.length != 1 ) return '';
+				
+				var screen:Screen = covered_screens[0];
+				var side:String;
+				if ( y <= screen.bounds.y )
+					side = 'top';
+				else if ( x<= screen.bounds.x )
+					side = 'left';
+				else if ( x + width >= screen.bounds.x + screen.bounds.width )
+					side = 'right';
+				else if ( y + height >= screen.bounds.y + screen.bounds.height )
+					side = '';//情况很复杂，暂时不支持
+				else
+					side = '';
+				
+				if ( ! side ) this.slideStatus = '';
+				this.processAlwaysInFront();
+					
+				
+				return side;
+				
+			}
+			
+			public function slideOut(force:Boolean=false):void
+			{
+				if ( pm.isFull != true && force==false ) return;
+				
+				var covered_screens:Array = Screen.getScreensForRectangle( gm.mainWin.bounds );
+				if ( covered_screens.length != 1 ) return;
+				
+				var screen:Screen = covered_screens[0];
+				
+				if (stage)
+				{
+					if ( this.dockSide == 'top' )
+					{
+						gm.mainWin.y = screen.bounds.y;
+					}
+					else if ( this.dockSide == 'left' )
+					{
+						gm.mainWin.x = screen.bounds.x;
+					}
+					else if ( this.dockSide == 'right' )
+					{
+						gm.mainWin.x = screen.bounds.x + screen.bounds.width - this.width;
+					}
+					else if ( this.dockSide == 'bottom' )
+					{
+						gm.mainWin.x = screen.bounds.y + screen.bounds.height - this.height;
+					}
+				}
+				this.slideStatus = 'out';
+			}
+			
+			
+			public function slideIn():void
+			{
+				this.slideInTimer.start();
+			}
+			
+			protected function immediateSlideIn(event:TimerEvent=null):void
+			{
+				if ( pm.isFull != true ) return;
+				
+				var covered_screens:Array = Screen.getScreensForRectangle( gm.mainWin.bounds );
+				if ( covered_screens.length != 1 ) return;
+				
+				var screen:Screen = covered_screens[0];
+				
+				if (stage){
+					if ( this.dockSide == 'top' )
+					{
+						gm.mainWin.y = screen.bounds.y - gm.mainWin.height + 2;	
+					}
+					else if ( this.dockSide == 'left' )
+					{
+						gm.mainWin.x = screen.bounds.x - gm.mainWin.width + 2;
+					}
+					else if ( this.dockSide == 'right' )
+					{
+						gm.mainWin.x = screen.bounds.x + screen.bounds.width - 2;
+					}
+					else if ( this.dockSide == 'bottom' )
+					{
+						gm.mainWin.y = screen.bounds.y + screen.bounds.height - 2;
+					}
+				}
+				this.slideStatus = 'in';
+			}
+			
+			
+			protected function on_window_MOUSE_DOWN(event:MouseEvent):void
+			{
+				var moveArea:Group = event.target as Group;
+				if ( moveArea && moveArea.id == 'moveArea' )
+				{
+					gm.mainWin.startMove();
+				}
+			}
+			
+			
+			protected function on_window_MOUSE_UP(event:MouseEvent):void
+			{
+				if ( this.dockSide ) this.slideOut();
+			}
+			
+			
+			protected function on_MOUSE_OVER(event:MouseEvent):void
+			{
+				if ( this.dockSide && this.slideStatus == 'in' ) 
+					this.slideOut();
+				
+				if ( this.slideInTimer.running )
+					this.slideInTimer.stop();
+				
+				//authWin在也active的话，authWin会跑到后面
+				//mac下面，最小化以后，在原地鼠标移动的话，也会激活activate
+				if ( ! NativeApplication.supportsDockIcon ){
+//					if ( ! gm.authWin || gm.authWin.visible == false  ) 
+						this.nativeWindow.activate();	
+				}		
+			}
+			
+			
+			protected function on_MOUSE_OUT(event:MouseEvent):void
+			{
+				if ( this.dockSide && this.slideStatus == 'out' && event.stageX < 0 && event.stageY < 0 ) 	this.slideIn();
+			}
+			
+			
+			protected function on_brResizer_MOUSE_DOWN(event:MouseEvent):void
+			{
+				gm.mainWin.startResize();
+			}
+			
+			
+			protected function on_MOVE(event:FlexNativeWindowBoundsEvent):void
+			{
+				this.dockSide = this.getDockableSide( event.afterBounds.x, event.afterBounds.y );
+			}
+			
+			
+			protected function on_minimizeButton_CLICK(event:MouseEvent):void
+			{
+				if ( ( NativeApplication.supportsDockIcon || NativeApplication.supportsSystemTrayIcon ) && pm.isFull && this.type==NativeWindowType.LIGHTWEIGHT )
+				{
+					this.nativeWindow.visible = false;
+					purr.addTextNotificationByParams('F5', 'F5已隐藏至图标', null, 2);
+				}
+				else
+				{
+					this.removeEventListener( MouseEvent.MOUSE_OVER , this.on_MOUSE_OVER );
+					this.removeEventListener( MouseEvent.MOUSE_OUT , this.on_MOUSE_OUT );		
+					this.minimize();
+				}
+			}
+			
+			protected function on_pinButton_CLICK(event:MouseEvent):void
+			{
+				var btn:ToggleButton = event.target as ToggleButton;
+				if ( btn.selected )
+					cd.alwaysInFront = true;
+				else
+					cd.alwaysInFront = false;
+				
+				this.processAlwaysInFront();
+			}
+			
+			protected function processAlwaysInFront():void
+			{
+				if ( this.dockSide ) 
+					this.alwaysInFront = true;
+				else
+					this.alwaysInFront = cd.alwaysInFront;
+			}
+			
+			
+			protected function on_DISPLAY_STATE_CHANGE(event:NativeWindowDisplayStateEvent):void
+			{
+				if ( ( NativeApplication.supportsDockIcon || NativeApplication.supportsSystemTrayIcon ) && pm.isFull )
+				{
+					//do nothing
+				}
+				else
+				{
+					this.addEventListener( MouseEvent.MOUSE_OVER , this.on_MOUSE_OVER );
+					this.addEventListener( MouseEvent.MOUSE_OUT , this.on_MOUSE_OUT );	
+				}
+			}
+			
+			
+			protected function on_NATIVE_DRAG_ENTER(event:NativeDragEvent):void
+			{
+				if ( this.dockSide && this.slideStatus == 'in' ) this.slideOut();
+			}
+			
+			
+			protected function on_NATIVE_DRAG_EXIT(event:NativeDragEvent):void
+			{
+				if ( this.dockSide && this.slideStatus == 'out' && event.stageX <= 0 && event.stageY <= 0 )
+				{
+					this.slideIn();
+				}
+			}
+			
+			
+			protected function on_btnFeedback_CLICK(event:MouseEvent):void
+			{
+				var req:URLRequest = new URLRequest( 'http://weibo.com/f5app' );
+				navigateToURL(req);
+			}
+			
+			
+			protected function on_authorizeEntry_CLICK(event:MouseEvent):void
+			{
+				dm.authorizeDialog.open();
+			}
+			
+			
+			protected function on_POWER_ACTIVATED(event:Event):void
+			{
+				this.btnAuthorize.includeInLayout = true;
+				this.btnAuthorize.visible = true;
+				
+				this.lnkAuthorize.includeInLayout = false;
+				this.lnkAuthorize.visible = false;
+			}
+			
+			
+			protected function exit(event:*=null):void
+			{
+				this.server.stop();
+				
+				cd.x = gm.mainWin.x < 0 ? 0 : gm.mainWin.x;
+				cd.y = gm.mainWin.y < 0 ? 0 : gm.mainWin.y;
+				cd.w = gm.mainWin.width;
+				cd.h = gm.mainWin.height;
+				cd.save();
+				
+				if ( page ) page.saveProject();
+				
+				gm.mainWin.close();
+				
+				for each ( var win:NativeWindow in NativeApplication.nativeApplication.openedWindows )
+				{
+					if ( ! win.closed ) win.close();
+				}
+			}
+			
+			
+			
+		]]>
+	</fx:Script>
+</mx:Window>

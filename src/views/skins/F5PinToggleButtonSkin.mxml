@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+
+    ADOBE SYSTEMS INCORPORATED
+    Copyright 2008 Adobe Systems Incorporated
+    All Rights Reserved.
+
+    NOTICE: Adobe permits you to use, modify, and distribute this file
+    in accordance with the terms of the license agreement accompanying it.
+
+-->
+
+<!--- The default skin class for a Spark ToggleButton component.  
+
+     @see spark.components.ToggleButton
+        
+      @langversion 3.0
+      @playerversion Flash 10
+      @playerversion AIR 1.5
+      @productversion Flex 4
+-->
+<s:SparkButtonSkin xmlns:fx="http://ns.adobe.com/mxml/2009" 
+                   xmlns:s="library://ns.adobe.com/flex/spark" 
+                   xmlns:fb="http://ns.adobe.com/flashbuilder/2009"
+                   minWidth="21" minHeight="21" 
+                   alpha.disabledStates="0.5">
+    
+    <!-- host component -->
+    <fx:Metadata>
+    <![CDATA[ 
+        /** 
+         * @copy spark.skins.spark.ApplicationSkin#hostComponent
+         */
+        [HostComponent("spark.components.ToggleButton")]
+    ]]>
+    </fx:Metadata>
+    
+    <fx:Script fb:purpose="styling">
+        /* Define the skin elements that should not be colorized. 
+           For toggle button, the graphics are colorized but the label is not. */
+        static private const exclusions:Array = ["labelDisplay"];
+
+        /**
+         * @private
+         */    
+        override public function get colorizeExclusions():Array {return exclusions;}
+        
+        /**
+         * @private
+         */
+        override protected function initializationComplete():void
+        {
+            useChromeColor = true;
+            super.initializationComplete();
+        }
+        
+        /**
+         * @private
+         */
+        override protected function updateDisplayList(unscaledWidth:Number, unscaledHeight:Number) : void
+        {
+            var cr:Number = getStyle("cornerRadius");
+            
+            if (cornerRadius != cr)
+            {
+                cornerRadius = cr;
+            }
+            
+            super.updateDisplayList(unscaledWidth, unscaledHeight);
+        }
+        
+        private var cornerRadius:Number = 2;
+    </fx:Script>
+    
+    <!-- states -->
+    <s:states>
+        <s:State name="up" />
+        <s:State name="over" stateGroups="overStates" />
+        <s:State name="down" stateGroups="downStates" />
+        <s:State name="disabled" stateGroups="disabledStates" />
+        <s:State name="upAndSelected" stateGroups="selectedStates, selectedUpStates" />
+        <s:State name="overAndSelected" stateGroups="overStates, selectedStates" />
+        <s:State name="downAndSelected" stateGroups="downStates, selectedStates" />
+        <s:State name="disabledAndSelected" stateGroups="selectedUpStates, disabledStates, selectedStates" />
+    </s:states>
+    
+	<!--- Define the drop shadow for the close button. -->
+	<s:RectangularDropShadow id="dropShadow" blurX="0" blurY="0" alpha="0" 
+							 alpha.over="0.85" alpha.down="0.85" alpha.upAndSelected=".5" distance="1"
+							 angle="90" color="0xFFFFFF" left="0" top="0" right="0" bottom="0"/>
+	
+	<!--- Define the border and fill. -->
+	<s:Rect left="0" top="0" right="0" bottom="0">
+		<s:stroke>
+			<s:SolidColorStroke color="0x000000"
+								alpha="0.0"
+								alpha.overStates="0.7"
+								alpha.upAndSelected="0.5"
+								weight="1"/>
+		</s:stroke>
+		<s:fill>
+			<s:SolidColor color="0xCCCCCC" alpha="0" alpha.over="0.7" alpha.down="0.7" alpha.upAndSelected="0.7" />
+		</s:fill>
+	</s:Rect>
+	
+	<!--- Define the inner shadow. -->
+	<s:Rect id="cbshad" left="1" right="1" top="1" height="1" >
+		<s:fill>
+			<s:SolidColor color="0x000000" color.overStates="0xFFFFFF" alpha="0" alpha.overStates=".85" alpha.downStates="0.22" />
+		</s:fill>
+	</s:Rect>
+	
+	<!--- Defines the appearance of the x in the close button. -->
+	<s:Group top="1" left="1" id="xSymbol">     
+		<s:Image source="@Embed('assets/images/pin_icon.png')" includeIn="selectedStates" alpha="0.85" left="3" top="3"/>
+		<s:Image source="@Embed('assets/images/unpin_icon.png')" excludeFrom="selectedStates"  alpha="0.85" left="3" top="3"/>
+	</s:Group>
+    
+</s:SparkButtonSkin>

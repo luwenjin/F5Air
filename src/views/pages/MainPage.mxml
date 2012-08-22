@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:BorderContainer xmlns:fx="http://ns.adobe.com/mxml/2009"
+				   xmlns:s="library://ns.adobe.com/flex/spark"
+				   xmlns:mx="library://ns.adobe.com/flex/mx"
+				   xmlns:components="views.components.*"
+				   xmlns:pages="views.pages.*"
+				   borderVisible="false"
+				   width="320" height="480" addedToStage="on_ADDED_TO_STAGE(event)"
+				   creationComplete="init()">
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<s:BorderContainer id="mainLayer" width="100%" height="100%" borderVisible="false" />
+	
+	<s:Group id="dialogLayer" width="100%" height="100%" clipAndEnableScrolling="true">
+		<s:layout>
+			<s:VerticalLayout/>
+		</s:layout>
+	</s:Group>
+
+<fx:Script>
+		<![CDATA[
+			import flash.net.URLRequest;
+			import flash.net.navigateToURL;
+			
+			import helpers.F5Logger;
+			import helpers.UrlParts;
+			
+			import managers.ClientData;
+			import managers.DialogManager;
+			import managers.GlobalManager;
+			import managers.PowerManager;
+			
+			import mx.collections.XMLListCollection;
+			import mx.containers.Tile;
+			import mx.containers.TitleWindow;
+			import mx.core.WindowedApplication;
+			import mx.effects.easing.Bounce;
+			import mx.events.CloseEvent;
+			import mx.events.DragEvent;
+			import mx.events.ListEvent;
+			import mx.managers.DragManager;
+			
+			import views.components.FolderBar;
+			import views.dialogs.DropDialog;
+			import views.windows.F5Window;
+			
+			import webserver.WebServer;
+			
+			[Bindable]
+			public var working_folder:File;
+			
+			[Bindable]
+			private var preview_folder:File;
+			
+			private var l:F5Logger;
+			
+			private var gm:GlobalManager = GlobalManager.instance;
+			private var dm:DialogManager = DialogManager.instance;
+			private var pm:PowerManager = PowerManager.instance;
+			private var cd:ClientData = ClientData.instance;
+			private var server:WebServer = WebServer.instance;
+			
+			public var welcomePage:WelcomePage;
+			public var projectPage:ProjectPage;
+				
+			private function init():void
+			{
+				this.l = new F5Logger( this, 'MainPage' );
+				
+				
+				dm.layer = dialogLayer;
+				dm.dropDialog.addEventListener( Event.CLOSE, on_dropDialog_CLOSE );
+			}
+			
+			protected function on_ADDED_TO_STAGE(event:Event):void
+			{
+				this.addEventListener( NativeDragEvent.NATIVE_DRAG_ENTER, on_NATIVE_DRAG_ENTER );			
+				this.welcome();
+				
+				if ( pm.isFull ) this.loadProject();
+			}
+			
+			public function project( file_or_url:*=null ):void
+			{
+				if ( ! projectPage ){
+					projectPage = new ProjectPage();
+					projectPage.folderBar.addEventListener(Event.CLOSE, on_projectPage_CLOSE )
+				}
+					
+				mainLayer.removeAllElements();
+				mainLayer.addElement( projectPage );
+				
+				var file:File = file_or_url as File;
+				var url:String = file_or_url as String;
+				if ( file )
+				{
+					this.serveLocal( file );
+				}
+				else if ( url )
+				{
+					this.serveRemote( url );
+				}
+			}
+			
+			public function welcome():void
+			{
+				if ( welcomePage && welcomePage.parent == mainLayer) return;
+
+				if ( ! welcomePage )
+					welcomePage = new WelcomePage();
+				
+				mainLayer.removeAllElements();
+				mainLayer.addElement( welcomePage );
+			}
+			
+			public function loadProject():void
+			{
+				var xml:XML = cd.readProjectsXML();
+				if ( xml && xml.@type == 'static' ){
+					var f:File = new File( xml.folder );
+					project( f );
+				}
+				
+				if ( xml && xml.@type == 'dynamic' ){
+					var url:String = 'http://'+xml.originHost+':'+xml.originPort;
+					project( url );
+					if ( xml.folder.toString() )
+						projectPage.folderBar.folder = new File( xml.folder.toString() );
+				}
+			}
+			
+			public function saveProject():void
+			{
+//				<project type="dynamic">
+//					<host>www.xxx.com</host>
+//					<port>80</port>
+//					<folder>d:/www.baidu.com</folder>
+//				</project>;
+				
+//				<project type="static">
+//					<folder></folder>
+//				</project>
+				var xml:XML = <project></project>;
+				if ( server.proxiesRouter ){
+					// dynamic
+					xml.@type="dynamic";
+					xml.originHost = server.proxiesRouter.originHost;
+					xml.originPort = server.proxiesRouter.originPort;
+					if ( server.proxiesRouter.rootFolder && server.proxiesRouter.rootFolder.exists )
+						xml.folder = server.proxiesRouter.rootFolder.nativePath;					
+					cd.writeProjectsXML( xml );
+				}else if ( server.filesRouter ){
+					xml.@type = 'static';
+					xml.folder = server.filesRouter.rootFolder.nativePath;
+					cd.writeProjectsXML( xml );
+				}
+			}
+			
+			
+			
+			private function serveRemote( url:String ):void
+			{
+				this.server.ensureStart();
+				this.server.rootProxy = url;
+				//todo: save project info
+			}
+			
+			private function serveLocal( folder:File ):void
+			{
+				this.server.ensureStart();
+				this.server.rootFolder = folder;
+				//todo: save project info
+			}
+			
+			protected function on_NATIVE_DRAG_ENTER(event:NativeDragEvent):void
+			{
+				if ( event.target == mainLayer )
+				{	
+					if ( isDroppable( event.clipboard ) ){
+						dm.dropDialog.open();
+					}
+				}
+			}
+			
+			protected function isDroppable( clipboard:Clipboard ):Boolean
+			{
+				var bmd:BitmapData = clipboard.getData( ClipboardFormats.BITMAP_FORMAT )  as BitmapData;
+				if (bmd) return false;
+				
+				var drop_files:Array = clipboard.getData( ClipboardFormats.FILE_LIST_FORMAT ) as Array;
+				if ( drop_files && drop_files.length > 0 ){
+					return true;
+				}
+				
+				var url:String = clipboard.getData( ClipboardFormats.URL_FORMAT ) as String;
+				if ( url )
+				{
+					var parts:UrlParts = UrlParts.parseAndCreate( url );
+					if ( parts.host == server.host && parts.port == server.port ){
+						return false;
+					}else{
+						return true;
+					}
+				}
+				
+				return false;
+				
+			}
+			
+			protected function on_dropDialog_CLOSE(event:Event):void
+			{
+				var dropAs:String = dm.dropDialog.dropAs;
+				var dropObject:* = dm.dropDialog.dropObject;
+				
+				if ( dropAs == DropDialog.NEW_URL )
+					this.project( dropObject as String );
+				
+				if ( dropAs == DropDialog.NEW_FOLDER )
+					this.project( dropObject as File );
+				
+				if ( dropAs == DropDialog.BIND_FOLDER )
+					this.projectPage.folderBar.folder = dropObject as File;
+			}
+
+			protected function on_projectPage_CLOSE(event:Event):void
+			{
+				this.welcome();
+				this.saveProject();
+			}
+			
+
+		]]>
+	</fx:Script>
+</s:BorderContainer>
